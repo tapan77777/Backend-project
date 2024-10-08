@@ -17,7 +17,7 @@ const registerUser = asyncHandler( async(req, res) => {
     //resturn res
 
    const {fullName, email, username, password} = req.body
-         console.log("email:", email);
+         // console.log("email:", email);
 
    if(
       [fullName,email,username,password].some((field)=>
@@ -26,15 +26,21 @@ const registerUser = asyncHandler( async(req, res) => {
       throw new ApiError(400,"all fileds are required")
    }
 
-   const existedUser=User.findOne({
+   const existedUser = await User.findOne({
       $or:[{username},{email}]
    })
    if(existedUser){
-      throw new ApiError(409,"user with email already exist")
+      throw new ApiError(409,"user with email or username  already exist")
 
    }
+   // console.log(req.files)
    const avtarLocalPath = req.files?.avatar[0]?.path;
-   const coverImageLoacalPath= req.files?.coverImage[0]?.path;
+   // const coverImageLoacalPath= req.files?.coverImage[0]?.path;
+
+   let coverImageLoacalPath;
+   if(req.files && Array.isArray(req.files.coverImage)&& req.files.coverImage.length >0){
+      coverImageLoacalPath = req.files.coverImage[0].path
+   }
 
    if(!avtarLocalPath){
       throw new ApiError(400, "Avtar is Required")
@@ -57,7 +63,7 @@ const registerUser = asyncHandler( async(req, res) => {
       username: username.toLowerCase()
    })
 
-   const createdUser = await user.findById(user._id).select(
+   const createdUser = await User.findById(user._id).select(
       "-password -refreshToken"
    )
    if(!createdUser){
