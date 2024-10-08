@@ -1,3 +1,4 @@
+import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -15,56 +16,57 @@ const registerUser = asyncHandler( async(req, res) => {
     //check user creation 
     //resturn res
 
+   const {fullName, email, username, password} = req.body
+         console.log("email:", email);
 
-    const {fullNmae, email,username, password} = req.body
-     console.log("email: ", email);
+   if(
+      [fullName,email,username,password].some((field)=>
+      field?.trim()=="")
+   ){
+      throw new ApiError(400,"all fileds are required")
+   }
 
+   const existedUser=User.findOne({
+      $or:[{username},{email}]
+   })
+   if(existedUser){
+      throw new ApiError(409,"user with email already exist")
 
-     if([fullNmae,email,password,username].some((field)=> field?.trim() === "")){
-        throw new ApiError(400, "all field is required")
-     }
+   }
+   const avtarLocalPath = req.files?.avatar[0]?.path;
+   const coverImageLoacalPath= req.files?.coverImage[0]?.path;
 
-     const exisetedUser = User.findOne({
-        $or: [{username},{email}]
-     })
+   if(!avtarLocalPath){
+      throw new ApiError(400, "Avtar is Required")
+   }
 
-     if(exisetedUser){
-        throw new ApiError(409,"already exist")
-     }
+   const avatar = await uploadOnCloudinary(avtarLocalPath)
 
-     const avatarLocalPath = req.files?.avatar[0]?.path;
-     const coverImageLocalPath = req.files?.coverImage[0]?.path;
+   const coverImage = await uploadOnCloudinary(coverImageLoacalPath)
 
-     if(!avatarLocalPath){
-            throw new ApiError(400, "avatar is required")
-     }
+   if(!avatar){
+      throw new ApiError(400,"avatar is required")
+   }
 
-     const avatar = await uploadOnCloudinary(avatarLocalPath)
-     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+   const user = await User.create({
+      fullName,
+      avatar:avatar.url,
+      coverImage : coverImage?.url || "",
+      email,
+      password,
+      username: username.toLowerCase()
+   })
 
-     if(!avatar){
-        throw new (400, "avatar is required")
-     }
-     const user = await User.create({
-        fullNmae,
-        avatar: avatar.url,
-        coverImage: coverImage?.url || "",
-        email,
-        password,
-        username: username.toLowerCase()
-     })
+   const createdUser = await user.findById(user._id).select(
+      "-password -refreshToken"
+   )
+   if(!createdUser){
+      throw new ApiError(400, "Something Went Wrong while resgistering")
+   }
 
-     const createdUser = await User.findById(user._id).select(
-        "-password -refreshToken"
-
-     )
-     if(!createdUser){
-        throw new ApiError(500, "something went wrong")
-     }
-     return res.status(201).json(
-        new ApiResponse(200, createdUser, "user register sucessfully")
-     )
-
+   return res.status(201).json(
+      new ApiResponse(200,createdUser, "user registered Successfully")
+   )
 
 })
 
